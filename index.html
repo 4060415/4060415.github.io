@@ -339,6 +339,7 @@
 
     let selectedMatch = null;
     let betCount = 0;
+    let espnOddsCache = null; // ESPN赔率缓存
 
     // ==================== 初始化场次下拉 ====================
     function initMatchSelect() {
@@ -510,6 +511,101 @@
         else return (100 / Math.abs(american) + 1).toFixed(2);
     }
 
+    // 给单个注填入实时赔率
+    async function fillLiveOdds(betId) {
+        const contentEl = document.getElementById(`bet-content-${betId}`);
+        const oddsEl = document.getElementById(`bet-odds-${betId}`);
+        if (!contentEl || !oddsEl) return;
+
+        // 确保有缓存数据
+        if (!espnOddsCache || !espnOddsCache.ml) {
+            try {
+                const res = await fetch(ESPN_API);
+                const data = await res.json();
+                const events = data.events || [];
+                const event = findMatchEvent(events);
+                if (!event) { alert('未找到该场次赔率'); return; }
+                espnOddsCache = extractOdds(event);
+            } catch (e) {
+                alert('获取赔率失败，请检查网络'); return;
+            }
+        }
+
+        const text = contentEl.value.trim();
+        const parsed = parseBet(text);
+        const o = espnOddsCache;
+        let found = false;
+
+        if (parsed?.type === 'home' && o.ml?.home) {
+            oddsEl.value = amToDec(o.ml.home);
+            found = true;
+        } else if (parsed?.type === 'away' && o.ml?.away) {
+            oddsEl.value = amToDec(o.ml.away);
+            found = true;
+        } else if (parsed?.type === 'draw' && o.ml?.draw) {
+            oddsEl.value = amToDec(o.ml.draw);
+            found = true;
+        } else if (parsed?.type === 'overunder') {
+            const line = parsed.line;
+            if (parsed.isOver && o.ou?.over) {
+                oddsEl.value = amToDec(o.ou.over);
+                found = true;
+            } else if (!parsed.isOver && o.ou?.under) {
+                oddsEl.value = amToDec(o.ou.under);
+                found = true;
+            }
+        }
+
+        if (!found) {
+            // 尝试从文字匹配
+            if (/主胜|主赢|主|胜|赢/i.test(text) && !/客/i.test(text) && o.ml?.home) {
+                oddsEl.value = amToDec(o.ml.home); found = true;
+            } else if (/客胜|客赢|客|负|输/i.test(text) && !/主/i.test(text) && o.ml?.away) {
+                oddsEl.value = amToDec(o.ml.away); found = true;
+            } else if (/平|draw|和/i.test(text) && o.ml?.draw) {
+                oddsEl.value = amToDec(o.ml.draw); found = true;
+            } else if (/大/i.test(text) && o.ou?.over) {
+                oddsEl.value = amToDec(o.ou.over); found = true;
+            } else if (/小/i.test(text) && o.ou?.under) {
+                oddsEl.value = amToDec(o.ou.under); found = true;
+            }
+        }
+
+        if (found) autoCalc();
+        else alert('未能识别该注类型，无法自动匹配赔率');
+    }
+
+    function findMatchEvent(events) {
+        return events.find(e => {
+            const comps = e.competitions?.[0]?.competitors;
+            if (!comps || comps.length < 2) return false;
+            const h = comps.find(c => c.homeAway === 'home');
+            const a = comps.find(c => c.homeAway === 'away');
+            if (!h || !a) return false;
+            return (selectedMatch.home.includes(h.team.displayName) || h.team.displayName.includes(selectedMatch.home) ||
+                    selectedMatch.home.includes(h.team.abbreviation)) &&
+                   (selectedMatch.away.includes(a.team.displayName) || a.team.displayName.includes(selectedMatch.away) ||
+                    selectedMatch.away.includes(a.team.abbreviation));
+        });
+    }
+
+    function extractOdds(event) {
+        const odds = event.competitions?.[0]?.odds?.[0];
+        if (!odds) return {};
+        return {
+            ml: {
+                home: odds.moneyline?.home?.close?.odds,
+                away: odds.moneyline?.away?.close?.odds,
+                draw: odds.moneyline?.draw?.close?.odds,
+            },
+            ou: {
+                line: odds.overUnder,
+                over: odds.total?.over?.close?.odds,
+                under: odds.total?.under?.close?.odds,
+            }
+        };
+    }
+
     async function fetchOdds() {
         const panel = document.getElementById('oddsPanel');
         const content = document.getElementById('oddsContent');
@@ -520,22 +616,7 @@
             const res = await fetch(ESPN_API);
             const data = await res.json();
             const events = data.events || [];
-
-            // 匹配选中场次（按球队名模糊匹配）
-            const event = events.find(e => {
-                const comps = e.competitions?.[0]?.competitors;
-                if (!comps || comps.length < 2) return false;
-                const h = comps.find(c => c.homeAway === 'home');
-                const a = comps.find(c => c.homeAway === 'away');
-                if (!h || !a) return false;
-                const hName = h.team.displayName;
-                const aName = a.team.displayName;
-                // 匹配球队名
-                return (selectedMatch.home.includes(hName) || hName.includes(selectedMatch.home) ||
-                        selectedMatch.home.includes(h.team.abbreviation)) &&
-                       (selectedMatch.away.includes(aName) || aName.includes(selectedMatch.away) ||
-                        selectedMatch.away.includes(a.team.abbreviation));
-            });
+            const event = findMatchEvent(events);
 
             if (!event) {
                 content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">该场次暂无实时赔率数据</div>';
@@ -549,6 +630,9 @@
                 panel.style.display = '';
                 return;
             }
+
+            // 缓存赔率数据
+            espnOddsCache = extractOdds(event);
 
             const provider = odds.provider?.name || 'DraftKings';
             source.textContent = `来源：${provider}（美国盘）`;
@@ -638,9 +722,10 @@
                     <input type="number" id="bet-amount-${id}" placeholder="100"
                            value="${amount}" step="0.01" min="0" oninput="autoCalc()">
                 </div>
-                <div class="input-group">
+                <div class="input-group" style="flex-direction:row;gap:4px;">
                     <input type="number" id="bet-odds-${id}" placeholder="2.5"
-                           value="${odds}" step="0.01" min="1" oninput="autoCalc()">
+                           value="${odds}" step="0.01" min="1" oninput="autoCalc()" style="flex:1;">
+                    <button class="btn btn-sm" onclick="fillLiveOdds(${id})" title="填入实时赔率" style="padding:10px 6px;font-size:10px;background:var(--tag-bg);color:var(--accent);border:1px solid var(--border);border-radius:8px;white-space:nowrap;">💹</button>
                 </div>
                 <button class="btn-del" onclick="removeBet(${id})" title="删除">×</button>
             </div>`;
