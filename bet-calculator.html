@@ -166,6 +166,17 @@
         .summary-item .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
         .summary-item .value { font-size: 20px; font-weight: 700; }
 
+        .odds-card {
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px; text-align: center;
+        }
+        .odds-card .odds-label { font-size: 11px; color: var(--text-secondary); margin-bottom:6px; }
+        .odds-card .odds-team { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+        .odds-card .odds-val { font-size: 22px; font-weight: 700; color: var(--accent); }
+        .odds-card .odds-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+        .odds-card .btn-sm { margin-top: 8px; }
+        @media (max-width: 700px) { #oddsContent { grid-template-columns: 1fr !important; } }
+
         .note {
             padding: 12px; background: rgba(232,184,48,0.08);
             border: 1px solid rgba(232,184,48,0.2); border-radius: 8px;
@@ -204,6 +215,16 @@
                 </select>
             </div>
             <div id="matchDetail"></div>
+
+            <!-- 实时赔率 -->
+            <div id="oddsPanel" style="display:none;margin-top:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="font-weight:600;">💹 实时外围赔率</span>
+                    <span style="font-size:10px;color:var(--text-secondary);" id="oddsSource"></span>
+                    <button class="btn btn-sm btn-outline" onclick="fetchOdds()" style="margin-left:auto;">🔄 刷新</button>
+                </div>
+                <div id="oddsContent" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
+            </div>
 
             <!-- 投注建议（仅未开赛场次显示） -->
             <div id="tipsPanel" style="display:none;">
@@ -344,6 +365,7 @@
         selectedMatch = match;
         renderMatchDetail();
         renderTips();
+        fetchOdds();
         autoCalc();
     }
 
@@ -478,6 +500,126 @@
             </div>`;
         });
         grid.innerHTML = html;
+    }
+
+    // ==================== 实时赔率 (ESPN API) ====================
+    const ESPN_API = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+
+    function amToDec(american) {
+        if (american > 0) return (american / 100 + 1).toFixed(2);
+        else return (100 / Math.abs(american) + 1).toFixed(2);
+    }
+
+    async function fetchOdds() {
+        const panel = document.getElementById('oddsPanel');
+        const content = document.getElementById('oddsContent');
+        const source = document.getElementById('oddsSource');
+        if (!selectedMatch) { panel.style.display = 'none'; return; }
+
+        try {
+            const res = await fetch(ESPN_API);
+            const data = await res.json();
+            const events = data.events || [];
+
+            // 匹配选中场次（按球队名模糊匹配）
+            const event = events.find(e => {
+                const comps = e.competitions?.[0]?.competitors;
+                if (!comps || comps.length < 2) return false;
+                const h = comps.find(c => c.homeAway === 'home');
+                const a = comps.find(c => c.homeAway === 'away');
+                if (!h || !a) return false;
+                const hName = h.team.displayName;
+                const aName = a.team.displayName;
+                // 匹配球队名
+                return (selectedMatch.home.includes(hName) || hName.includes(selectedMatch.home) ||
+                        selectedMatch.home.includes(h.team.abbreviation)) &&
+                       (selectedMatch.away.includes(aName) || aName.includes(selectedMatch.away) ||
+                        selectedMatch.away.includes(a.team.abbreviation));
+            });
+
+            if (!event) {
+                content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">该场次暂无实时赔率数据</div>';
+                panel.style.display = '';
+                return;
+            }
+
+            const odds = event.competitions[0]?.odds?.[0];
+            if (!odds) {
+                content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">暂无赔率</div>';
+                panel.style.display = '';
+                return;
+            }
+
+            const provider = odds.provider?.name || 'DraftKings';
+            source.textContent = `来源：${provider}（美国盘）`;
+
+            const ml = odds.moneyline || {};
+            const ou = odds.total || {};
+            const spread = odds.pointSpread || {};
+
+            let html = '';
+
+            // 胜平负
+            const homeOdds = ml.home?.close?.odds || '—';
+            const awayOdds = ml.away?.close?.odds || '—';
+            const drawOdds = ml.draw?.close?.odds || '—';
+            html += `<div class="odds-card">
+                <div class="odds-label">胜负平 (Moneyline)</div>
+                <div class="odds-team">主胜</div>
+                <div class="odds-val">${typeof homeOdds==='number'?amToDec(homeOdds):homeOdds}</div>
+                <div class="odds-sub">美盘 ${homeOdds}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('主胜','100','${typeof homeOdds==='number'?amToDec(homeOdds):'2.0'}')">+ 填入主胜</button>
+            </div>`;
+            html += `<div class="odds-card">
+                <div class="odds-label">胜负平 (Moneyline)</div>
+                <div class="odds-team">平局</div>
+                <div class="odds-val">${typeof drawOdds==='number'?amToDec(drawOdds):drawOdds}</div>
+                <div class="odds-sub">美盘 ${drawOdds}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('平局','100','${typeof drawOdds==='number'?amToDec(drawOdds):'3.5'}')">+ 填入平局</button>
+            </div>`;
+            html += `<div class="odds-card">
+                <div class="odds-label">胜负平 (Moneyline)</div>
+                <div class="odds-team">客胜</div>
+                <div class="odds-val">${typeof awayOdds==='number'?amToDec(awayOdds):awayOdds}</div>
+                <div class="odds-sub">美盘 ${awayOdds}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('客胜','100','${typeof awayOdds==='number'?amToDec(awayOdds):'4.0'}')">+ 填入客胜</button>
+            </div>`;
+
+            // 大小球
+            if (ou.over) {
+                const line = odds.overUnder || '2.5';
+                html += `<div class="odds-card">
+                    <div class="odds-label">大小球 (Total) ${line}</div>
+                    <div class="odds-team">大${line}</div>
+                    <div class="odds-val">${typeof ou.over.close?.odds==='number'?amToDec(ou.over.close.odds):'—'}</div>
+                    <div class="odds-sub">美盘 ${ou.over.close?.odds||'—'}</div>
+                    <button class="btn btn-sm btn-outline" onclick="addBet('大${line}','100','${typeof ou.over.close?.odds==='number'?amToDec(ou.over.close.odds):'1.9'}')">+ 填入大${line}</button>
+                </div>`;
+                html += `<div class="odds-card">
+                    <div class="odds-label">大小球 (Total) ${line}</div>
+                    <div class="odds-team">小${line}</div>
+                    <div class="odds-val">${typeof ou.under.close?.odds==='number'?amToDec(ou.under.close.odds):'—'}</div>
+                    <div class="odds-sub">美盘 ${ou.under.close?.odds||'—'}</div>
+                    <button class="btn btn-sm btn-outline" onclick="addBet('小${line}','100','${typeof ou.under.close?.odds==='number'?amToDec(ou.under.close.odds):'1.9'}')">+ 填入小${line}</button>
+                </div>`;
+            }
+
+            // 让球
+            if (spread.home?.close?.line) {
+                html += `<div class="odds-card">
+                    <div class="odds-label">让球盘 (Spread)</div>
+                    <div class="odds-team">主 ${spread.home.close.line}</div>
+                    <div class="odds-val">${typeof spread.home.close?.odds==='number'?amToDec(spread.home.close.odds):'—'}</div>
+                    <div class="odds-sub">美盘 ${spread.home.close?.odds||'—'}</div>
+                </div>`;
+            }
+
+            content.innerHTML = html;
+            panel.style.display = '';
+        } catch (e) {
+            content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--loss);padding:20px;">⚠️ 获取赔率失败，请检查网络后点刷新</div>';
+            panel.style.display = '';
+        }
     }
 
     // ==================== 下注管理 ====================
