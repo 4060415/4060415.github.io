@@ -727,10 +727,9 @@
     }
 
     async function fetchOdds() {
-        const panel = document.getElementById('oddsPanel');
         const content = document.getElementById('oddsContent');
         const source = document.getElementById('oddsSource');
-        if (!selectedMatch) { panel.style.display = 'none'; return; }
+        if (!selectedMatch || !content) return;
 
         try {
             const res = await fetch(ESPN_API);
@@ -740,14 +739,12 @@
 
             if (!event) {
                 content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">该场次暂无实时赔率数据</div>';
-                panel.style.display = '';
                 return;
             }
 
             const odds = event.competitions[0]?.odds?.[0];
             if (!odds) {
-                content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">暂无赔率</div>';
-                panel.style.display = '';
+                content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:20px;">暂无赔率数据</div>';
                 return;
             }
 
@@ -824,10 +821,8 @@
             }
 
             content.innerHTML = html;
-            panel.style.display = '';
         } catch (e) {
             content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--loss);padding:20px;">⚠️ 获取赔率失败：' + e.message + '<br><small>ESPN仅提供当天比赛赔率，已完赛场次无实时数据</small></div>';
-            panel.style.display = '';
         }
     }
 
