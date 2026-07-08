@@ -185,8 +185,9 @@
         footer { text-align: center; color: var(--text-secondary); font-size: 12px; padding: 24px 0; }
 
         @media (max-width: 700px) {
-            .bet-header, .bet-row { grid-template-columns: 1fr 60px 80px 30px; gap: 4px; }
-            .input-group input { padding: 8px 6px; font-size: 12px; }
+            .bet-header, .bet-row { grid-template-columns: 1fr 55px 95px 28px; gap: 3px; font-size:11px; }
+            .input-group input { padding: 8px 4px; font-size: 11px; }
+            .bet-row button { font-size: 10px !important; padding: 6px 3px !important; }
             .score-grid { grid-template-columns: repeat(3, 1fr); }
             .summary-bar { grid-template-columns: repeat(2, 1fr); }
             body { padding: 8px; } .card { padding: 14px; } .auto-tag { display: none; }
@@ -851,7 +852,7 @@
                         <input type="number" id="bet-odds-${id}" placeholder="2.5"
                                value="${odds}" step="0.01" min="1" oninput="autoCalc()" style="flex:1;min-width:0;">
                         <button onclick="fillLiveOdds(${id})" title="填入实时赔率"
-                                style="flex-shrink:0;padding:8px 8px;font-size:12px;font-weight:600;background:var(--accent);color:#000;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">实时赔率</button>
+                                style="flex-shrink:0;padding:6px 6px;font-size:11px;font-weight:600;background:var(--accent);color:#000;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;" class="live-odds-btn">赔率</button>
                     </div>
                 </div>
                 <button class="btn-del" onclick="removeBet(${id})" title="删除">×</button>
