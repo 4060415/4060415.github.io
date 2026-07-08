@@ -341,37 +341,6 @@
     let betCount = 0;
     let espnOddsCache = null; // ESPN赔率缓存
 
-    // 中英文队名映射（用于匹配ESPN英文API）
-    const TEAM_NAMES = {
-        '法国': ['France','FRA'], '摩洛哥': ['Morocco','MAR'], '西班牙': ['Spain','ESP'],
-        '比利时': ['Belgium','BEL'], '挪威': ['Norway','NOR'], '英格兰': ['England','ENG'],
-        '阿根廷': ['Argentina','ARG'], '瑞士': ['Switzerland','SUI'], '巴西': ['Brazil','BRA'],
-        '日本': ['Japan','JPN'], '墨西哥': ['Mexico','MEX'], '美国': ['United States','USA'],
-        '葡萄牙': ['Portugal','POR'], '德国': ['Germany','GER'], '荷兰': ['Netherlands','NED'],
-        '加拿大': ['Canada','CAN'], '克罗地亚': ['Croatia','CRO'], '哥伦比亚': ['Colombia','COL'],
-        '埃及': ['Egypt','EGY'], '南非': ['South Africa','RSA'], '塞内加尔': ['Senegal','SEN'],
-        '巴拉圭': ['Paraguay','PAR'], '厄瓜多尔': ['Ecuador','ECU'], '瑞典': ['Sweden','SWE'],
-        '科特迪瓦': ['Ivory Coast','CIV'], '奥地利': ['Austria','AUT'], '澳大利亚': ['Australia','AUS'],
-        '阿尔及利亚': ['Algeria','ALG'], '民主刚果': ['Congo DR','COD'], '加纳': ['Ghana','GHA'],
-        '佛得角': ['Cape Verde','CPV'], '波黑': ['Bosnia','BIH'], '伊朗': ['Iran','IRN'],
-        '沙特': ['Saudi Arabia','KSA'], '韩国': ['South Korea','KOR'], '乌拉圭': ['Uruguay','URU'],
-        '意大利': ['Italy','ITA'], '丹麦': ['Denmark','DEN'], '尼日利亚': ['Nigeria','NGA'],
-        '卡塔尔': ['Qatar','QAT'], '智利': ['Chile','CHI'], '乌克兰': ['Ukraine','UKR'],
-        '捷克': ['Czechia','CZE'], '斯洛伐克': ['Slovakia','SVK'], '苏格兰': ['Scotland','SCO'],
-        '秘鲁': ['Peru','PER'], '巴拿马': ['Panama','PAN'], '哥斯达黎加': ['Costa Rica','CRC'],
-        '牙买加': ['Jamaica','JAM'], '洪都拉斯': ['Honduras','HON'], '伊拉克': ['Iraq','IRQ'],
-        '新西兰': ['New Zealand','NZL'], '阿联酋': ['UAE','UAE'], '玻利维亚': ['Bolivia','BOL'],
-        '南非': ['South Africa','RSA'], '巴拿马': ['Panama','PAN'], '中国': ['China','CHN'],
-    };
-
-    function matchTeam(cnName, enName, enAbbr) {
-        const names = TEAM_NAMES[cnName];
-        if (!names) return false;
-        return names.some(n => enName === n || enAbbr === n ||
-            enName.toLowerCase().includes(n.toLowerCase()) ||
-            n.toLowerCase().includes(enName.toLowerCase()));
-    }
-
     // ==================== 初始化场次下拉 ====================
     function initMatchSelect() {
         const sel = document.getElementById('matchSelect');
@@ -613,8 +582,10 @@
             const h = comps.find(c => c.homeAway === 'home');
             const a = comps.find(c => c.homeAway === 'away');
             if (!h || !a) return false;
-            return matchTeam(selectedMatch.home, h.team.displayName, h.team.abbreviation) &&
-                   matchTeam(selectedMatch.away, a.team.displayName, a.team.abbreviation);
+            return (selectedMatch.home.includes(h.team.displayName) || h.team.displayName.includes(selectedMatch.home) ||
+                    selectedMatch.home.includes(h.team.abbreviation)) &&
+                   (selectedMatch.away.includes(a.team.displayName) || a.team.displayName.includes(selectedMatch.away) ||
+                    selectedMatch.away.includes(a.team.abbreviation));
         });
     }
 
