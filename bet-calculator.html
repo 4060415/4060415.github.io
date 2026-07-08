@@ -548,7 +548,32 @@
         const oddsEl = document.getElementById(`bet-odds-${betId}`);
         if (!contentEl || !oddsEl) return;
 
-        // 确保有缓存数据
+        // 已完赛的比赛：直接根据赛果算出中奖金额
+        if (selectedMatch && selectedMatch.status === 'done' && selectedMatch.score) {
+            const score = selectedMatch.score.replace(/\(.*\)/,'').trim();
+            const parts = score.split(':');
+            if (parts.length === 2) {
+                const h = parseInt(parts[0]), a = parseInt(parts[1]);
+                if (!isNaN(h) && !isNaN(a)) {
+                    const text = contentEl.value.trim();
+                    const parsed = parseBet(text);
+                    let won = false;
+                    if (parsed?.type === 'home') won = h > a;
+                    else if (parsed?.type === 'away') won = h < a;
+                    else if (parsed?.type === 'draw') won = h === a;
+                    else if (parsed?.type === 'exact') won = (h === parsed.home && a === parsed.away);
+                    else if (parsed?.type === 'overunder') won = parsed.isOver ? (h+a > parsed.line) : (h+a < parsed.line);
+                    if (won) {
+                        alert(`已完赛 ${score}，该注中奖！赔率为结算赔率，请手动输入实际赔付倍率`);
+                    } else {
+                        alert(`已完赛 ${score}，该注未中奖`);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // 未开赛：从ESPN获取实时赔率
         if (!espnOddsCache || !espnOddsCache.ml) {
             try {
                 const res = await fetch(ESPN_API);
