@@ -722,10 +722,13 @@
                     <input type="number" id="bet-amount-${id}" placeholder="100"
                            value="${amount}" step="0.01" min="0" oninput="autoCalc()">
                 </div>
-                <div class="input-group" style="flex-direction:row;gap:4px;">
-                    <input type="number" id="bet-odds-${id}" placeholder="2.5"
-                           value="${odds}" step="0.01" min="1" oninput="autoCalc()" style="flex:1;">
-                    <button class="btn btn-sm" onclick="fillLiveOdds(${id})" title="填入实时赔率" style="padding:10px 6px;font-size:10px;background:var(--tag-bg);color:var(--accent);border:1px solid var(--border);border-radius:8px;white-space:nowrap;">💹</button>
+                <div class="input-group">
+                    <div style="display:flex;gap:4px;">
+                        <input type="number" id="bet-odds-${id}" placeholder="2.5"
+                               value="${odds}" step="0.01" min="1" oninput="autoCalc()" style="flex:1;min-width:0;">
+                        <button onclick="fillLiveOdds(${id})" title="填入实时赔率"
+                                style="flex-shrink:0;padding:8px 8px;font-size:12px;font-weight:600;background:var(--accent);color:#000;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">实时赔率</button>
+                    </div>
                 </div>
                 <button class="btn-del" onclick="removeBet(${id})" title="删除">×</button>
             </div>`;
