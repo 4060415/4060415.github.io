@@ -220,6 +220,12 @@
             <div id="oddsPanel" style="display:none;margin-top:14px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
                     <span style="font-weight:600;">💹 实时外围赔率</span>
+                    <select id="oddsFormat" onchange="fetchOdds()" style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:12px;">
+                        <option value="decimal">欧洲盘</option>
+                        <option value="american">美国盘</option>
+                        <option value="hongkong">香港盘</option>
+                        <option value="indonesian">印尼盘</option>
+                    </select>
                     <span style="font-size:10px;color:var(--text-secondary);" id="oddsSource"></span>
                     <button class="btn btn-sm btn-outline" onclick="fetchOdds()" style="margin-left:auto;">🔄 刷新</button>
                 </div>
@@ -537,9 +543,37 @@
     // ==================== 实时赔率 (ESPN API) ====================
     const ESPN_API = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 
+    // 赔率格式转换：输入美国盘，输出用户选择的格式
+    function formatOdds(american) {
+        if (typeof american !== 'number') return '—';
+        const fmt = document.getElementById('oddsFormat')?.value || 'decimal';
+        switch (fmt) {
+            case 'american':
+                return american > 0 ? `+${american}` : `${american}`;
+            case 'hongkong': {
+                const dec = american > 0 ? (american/100 + 1) : (100/Math.abs(american) + 1);
+                return (dec - 1).toFixed(2);
+            }
+            case 'indonesian': {
+                const dec = american > 0 ? (american/100 + 1) : (100/Math.abs(american) + 1);
+                if (dec >= 2) return `+${(dec-1).toFixed(2)}`;
+                return (-1/(dec-1)).toFixed(2);
+            }
+            default: // decimal 欧洲盘
+                if (american > 0) return (american / 100 + 1).toFixed(2);
+                return (100 / Math.abs(american) + 1).toFixed(2);
+        }
+    }
+
+    function getFormatLabel() {
+        const fmt = document.getElementById('oddsFormat')?.value || 'decimal';
+        return {decimal:'欧盘', american:'美盘', hongkong:'港盘', indonesian:'印尼盘'}[fmt] || '欧盘';
+    }
+
+    // 旧函数保留兼容
     function amToDec(american) {
         if (american > 0) return (american / 100 + 1).toFixed(2);
-        else return (100 / Math.abs(american) + 1).toFixed(2);
+        return (100 / Math.abs(american) + 1).toFixed(2);
     }
 
     // 给单个注填入实时赔率
@@ -689,7 +723,7 @@
             espnOddsCache = extractOdds(event);
 
             const provider = odds.provider?.name || 'DraftKings';
-            source.textContent = `来源：${provider}（美国盘）`;
+            source.textContent = `来源：${provider} · 当前显示：${getFormatLabel()}`;
 
             const ml = odds.moneyline || {};
             const ou = odds.total || {};
@@ -698,57 +732,62 @@
             let html = '';
 
             // 胜平负
-            const homeOdds = ml.home?.close?.odds || '—';
-            const awayOdds = ml.away?.close?.odds || '—';
-            const drawOdds = ml.draw?.close?.odds || '—';
+            const homeOdds = ml.home?.close?.odds;
+            const awayOdds = ml.away?.close?.odds;
+            const drawOdds = ml.draw?.close?.odds;
+            const fmtHome = typeof homeOdds==='number' ? formatOdds(homeOdds) : '—';
+            const fmtAway = typeof awayOdds==='number' ? formatOdds(awayOdds) : '—';
+            const fmtDraw = typeof drawOdds==='number' ? formatOdds(drawOdds) : '—';
+            const decHome = typeof homeOdds==='number' ? amToDec(homeOdds) : '2.0';
+            const decAway = typeof awayOdds==='number' ? amToDec(awayOdds) : '4.0';
+            const decDraw = typeof drawOdds==='number' ? amToDec(drawOdds) : '3.5';
+            const lbl = getFormatLabel();
             html += `<div class="odds-card">
-                <div class="odds-label">胜负平 (Moneyline)</div>
-                <div class="odds-team">主胜</div>
-                <div class="odds-val">${typeof homeOdds==='number'?amToDec(homeOdds):homeOdds}</div>
-                <div class="odds-sub">美盘 ${homeOdds}</div>
-                <button class="btn btn-sm btn-outline" onclick="addBet('主胜','100','${typeof homeOdds==='number'?amToDec(homeOdds):'2.0'}')">+ 填入主胜</button>
+                <div class="odds-label">胜负平</div><div class="odds-team">主胜</div>
+                <div class="odds-val">${fmtHome}</div><div class="odds-sub">${lbl} · 欧盘${decHome}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('主胜','100','${decHome}')">+ 填入主胜</button>
             </div>`;
             html += `<div class="odds-card">
-                <div class="odds-label">胜负平 (Moneyline)</div>
-                <div class="odds-team">平局</div>
-                <div class="odds-val">${typeof drawOdds==='number'?amToDec(drawOdds):drawOdds}</div>
-                <div class="odds-sub">美盘 ${drawOdds}</div>
-                <button class="btn btn-sm btn-outline" onclick="addBet('平局','100','${typeof drawOdds==='number'?amToDec(drawOdds):'3.5'}')">+ 填入平局</button>
+                <div class="odds-label">胜负平</div><div class="odds-team">平局</div>
+                <div class="odds-val">${fmtDraw}</div><div class="odds-sub">${lbl} · 欧盘${decDraw}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('平局','100','${decDraw}')">+ 填入平局</button>
             </div>`;
             html += `<div class="odds-card">
-                <div class="odds-label">胜负平 (Moneyline)</div>
-                <div class="odds-team">客胜</div>
-                <div class="odds-val">${typeof awayOdds==='number'?amToDec(awayOdds):awayOdds}</div>
-                <div class="odds-sub">美盘 ${awayOdds}</div>
-                <button class="btn btn-sm btn-outline" onclick="addBet('客胜','100','${typeof awayOdds==='number'?amToDec(awayOdds):'4.0'}')">+ 填入客胜</button>
+                <div class="odds-label">胜负平</div><div class="odds-team">客胜</div>
+                <div class="odds-val">${fmtAway}</div><div class="odds-sub">${lbl} · 欧盘${decAway}</div>
+                <button class="btn btn-sm btn-outline" onclick="addBet('客胜','100','${decAway}')">+ 填入客胜</button>
             </div>`;
 
             // 大小球
             if (ou.over) {
                 const line = odds.overUnder || '2.5';
+                const overOdds = ou.over.close?.odds;
+                const underOdds = ou.under.close?.odds;
+                const fmtOver = typeof overOdds==='number' ? formatOdds(overOdds) : '—';
+                const fmtUnder = typeof underOdds==='number' ? formatOdds(underOdds) : '—';
+                const decOver = typeof overOdds==='number' ? amToDec(overOdds) : '1.9';
+                const decUnder = typeof underOdds==='number' ? amToDec(underOdds) : '1.9';
                 html += `<div class="odds-card">
-                    <div class="odds-label">大小球 (Total) ${line}</div>
-                    <div class="odds-team">大${line}</div>
-                    <div class="odds-val">${typeof ou.over.close?.odds==='number'?amToDec(ou.over.close.odds):'—'}</div>
-                    <div class="odds-sub">美盘 ${ou.over.close?.odds||'—'}</div>
-                    <button class="btn btn-sm btn-outline" onclick="addBet('大${line}','100','${typeof ou.over.close?.odds==='number'?amToDec(ou.over.close.odds):'1.9'}')">+ 填入大${line}</button>
+                    <div class="odds-label">大小球 ${line}</div><div class="odds-team">大${line}</div>
+                    <div class="odds-val">${fmtOver}</div><div class="odds-sub">${lbl} · 欧盘${decOver}</div>
+                    <button class="btn btn-sm btn-outline" onclick="addBet('大${line}','100','${decOver}')">+ 填入大${line}</button>
                 </div>`;
                 html += `<div class="odds-card">
-                    <div class="odds-label">大小球 (Total) ${line}</div>
-                    <div class="odds-team">小${line}</div>
-                    <div class="odds-val">${typeof ou.under.close?.odds==='number'?amToDec(ou.under.close.odds):'—'}</div>
-                    <div class="odds-sub">美盘 ${ou.under.close?.odds||'—'}</div>
-                    <button class="btn btn-sm btn-outline" onclick="addBet('小${line}','100','${typeof ou.under.close?.odds==='number'?amToDec(ou.under.close.odds):'1.9'}')">+ 填入小${line}</button>
+                    <div class="odds-label">大小球 ${line}</div><div class="odds-team">小${line}</div>
+                    <div class="odds-val">${fmtUnder}</div><div class="odds-sub">${lbl} · 欧盘${decUnder}</div>
+                    <button class="btn btn-sm btn-outline" onclick="addBet('小${line}','100','${decUnder}')">+ 填入小${line}</button>
                 </div>`;
             }
 
             // 让球
             if (spread.home?.close?.line) {
+                const spOdds = spread.home.close?.odds;
+                const fmtSp = typeof spOdds==='number' ? formatOdds(spOdds) : '—';
                 html += `<div class="odds-card">
-                    <div class="odds-label">让球盘 (Spread)</div>
+                    <div class="odds-label">让球盘</div>
                     <div class="odds-team">主 ${spread.home.close.line}</div>
-                    <div class="odds-val">${typeof spread.home.close?.odds==='number'?amToDec(spread.home.close.odds):'—'}</div>
-                    <div class="odds-sub">美盘 ${spread.home.close?.odds||'—'}</div>
+                    <div class="odds-val">${fmtSp}</div>
+                    <div class="odds-sub">${lbl} · 欧盘${typeof spOdds==='number'?amToDec(spOdds):'—'}</div>
                 </div>`;
             }
 
