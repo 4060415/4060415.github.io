@@ -166,6 +166,7 @@
         .summary-item .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
         .summary-item .value { font-size: 20px; font-weight: 700; }
 
+        .odds-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
         .odds-card {
             background: var(--input-bg); border: 1px solid var(--border);
             border-radius: 10px; padding: 14px; text-align: center;
@@ -175,8 +176,6 @@
         .odds-card .odds-val { font-size: 22px; font-weight: 700; color: var(--accent); }
         .odds-card .odds-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
         .odds-card .btn-sm { margin-top: 8px; }
-        @media (max-width: 700px) { #oddsContent { grid-template-columns: 1fr !important; } }
-
         .note {
             padding: 12px; background: rgba(232,184,48,0.08);
             border: 1px solid rgba(232,184,48,0.2); border-radius: 8px;
@@ -194,6 +193,10 @@
             .match-detail .team { font-size: 16px; } .match-detail .team .flag { font-size: 28px; }
             .match-detail .score-display { font-size: 22px; }
             .tips-grid { grid-template-columns: 1fr; }
+            .odds-grid { grid-template-columns: 1fr; }
+            .odds-card { padding: 10px 8px; }
+            .odds-card .odds-val { font-size: 18px; }
+            #oddsFormat { font-size: 10px !important; padding: 2px 4px !important; }
         }
     </style>
 </head>
@@ -233,7 +236,7 @@
                         <span style="font-size:10px;color:var(--text-secondary);" id="oddsSource"></span>
                         <button class="btn btn-sm btn-outline" onclick="fetchOdds()" style="margin-left:auto;">🔄 刷新赔率</button>
                     </div>
-                    <div id="oddsContent" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;"></div>
+                    <div id="oddsContent" class="odds-grid"></div>
                     <div class="tips-grid" id="tipsGrid"></div>
                     <div style="font-size:10px;color:var(--text-secondary);margin-top:8px;">
                         ⚠️ 建议基于球队表现自动生成，不构成投注指导。理性投注，风险自担。
