@@ -826,7 +826,7 @@
             content.innerHTML = html;
             panel.style.display = '';
         } catch (e) {
-            content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--loss);padding:20px;">⚠️ 获取赔率失败，请检查网络后点刷新</div>';
+            content.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--loss);padding:20px;">⚠️ 获取赔率失败：' + e.message + '<br><small>ESPN仅提供当天比赛赔率，已完赛场次无实时数据</small></div>';
             panel.style.display = '';
         }
     }
